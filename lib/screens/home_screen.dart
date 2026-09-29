@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_feature.dart';
+import '../models/care_models.dart';
+import '../services/care_storage_service.dart';
 import '../services/mock_auth_service.dart';
 import '../services/nav_controller.dart';
 import '../theme/app_colors.dart';
+import '../utils/age_utils.dart';
 import '../widgets/pressable_scale.dart';
 
 /// Home tab (Home_Page.png): greeting, Today's Reminder, 6 feature buttons,
@@ -18,7 +21,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const Color _chipColor = Color(0xFFA6607C);
 
-  // Feature buttons in design order (labels come from AppFeatures.fullName).
   static const List<String> _featureIds = [
     'guide',
     'records',
@@ -30,15 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _name = 'there';
 
-  // Section 6 will fill these from the real reminders due today.
-  final String _reminderChip = 'No reminders today';
-  final String _reminderBody =
-      "You're all caught up. Add reminders in Care Records & Reminders.";
+  CareProfile? _reminderProfile;
+  CareReminder? _reminder;
+  bool _loadedReminder = false;
 
   @override
   void initState() {
     super.initState();
     _loadName();
+    _loadReminder();
   }
 
   Future<void> _loadName() async {
@@ -48,6 +50,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (name is String && name.trim().isNotEmpty) {
       setState(() => _name = name.trim());
     }
+  }
+
+  Future<void> _loadReminder() async {
+    final all = await CareStorageService.loadAllReminders();
+    final today = all.where((e) => AgeUtils.isSameDay(e.value.date, DateTime.now()));
+    if (!mounted) return;
+    setState(() {
+      if (today.isNotEmpty) {
+        _reminderProfile = today.first.key;
+        _reminder = today.first.value;
+      }
+      _loadedReminder = true;
+    });
   }
 
   void _open(String id) => NavController.instance.open(id);
@@ -126,6 +141,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _reminderCard() {
+    final hasReminder = _loadedReminder && _reminder != null;
+    final chipText = hasReminder
+        ? "${_reminderProfile!.name}'s ${_reminder!.title}"
+        : 'No reminders today';
+    final bodyText = hasReminder
+        ? 'Scheduled at ${_reminder!.time}.'
+        : "You're all caught up. Add reminders in Care Records & Reminders.";
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -153,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '• $_reminderChip',
+              '• $chipText',
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -163,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            _reminderBody,
+            bodyText,
             style: const TextStyle(
               fontSize: 13,
               height: 1.3,

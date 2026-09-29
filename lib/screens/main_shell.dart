@@ -6,6 +6,8 @@ import '../widgets/amuma_bottom_bar.dart';
 import 'home_screen.dart';
 import 'placeholder_screen.dart';
 import 'amuma_screen.dart';
+import 'baby_care_guide_screen.dart';
+import 'care_records_screen.dart';
 
 /// Hosts the active main screen above the shared bottom bar.
 class MainShell extends StatefulWidget {
@@ -28,6 +30,10 @@ class _MainShellState extends State<MainShell> {
         return const HomeScreen();
       case 'amuma':
         return const AmumaScreen();
+      case 'guide':
+        return const BabyCareGuideScreen();
+      case 'records':
+        return const CareRecordsScreen();
       default:
         // Replaced one by one in the next sections.
         return PlaceholderScreen(title: AppFeatures.byId(id).fullName);
