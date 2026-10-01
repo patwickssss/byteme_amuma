@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import '../services/mock_auth_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/pressable_scale.dart';
 import '../utils/app_routes.dart';
+import '../widgets/amuma_button.dart';
+import '../widgets/gradient_background.dart';
+import '../widgets/onboarding_progress.dart';
+import '../widgets/pressable_scale.dart';
 import 'main_shell.dart';
 
-/// "Let's set up your account" — first onboarding question from Figma
-/// (Get_Info.png): first-time parent? Yes / No, or skip.
-/// The answer is saved to the mock user's profile (local only).
+/// "Let's set up your account" — a short 4-step onboarding flow saved
+/// into the mock user's profile (local only, no backend):
+///   1. First-time parent?
+///   2. What should we call you?
+///   3. Who are you expecting or caring for?
+///   4. Preferred language
+/// Every step can be skipped; skipping or finishing both go to the Main
+/// Shell, saving whatever was answered so far.
 class AccountSetupScreen extends StatefulWidget {
   const AccountSetupScreen({super.key});
 
@@ -18,64 +25,73 @@ class AccountSetupScreen extends StatefulWidget {
 }
 
 class _AccountSetupScreenState extends State<AccountSetupScreen> {
-  bool _isSaving = false;
+  static const int _totalSteps = 4;
 
-  Future<void> _answer(bool? firstTimeParent) async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
+  int _step = 0;
+  bool _saving = false;
+
+  bool? _firstTimeParent;
+  final TextEditingController _nameController = TextEditingController();
+  String? _caringFor;
+  String? _language;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _finish() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    final answers = <String, dynamic>{
+      if (_firstTimeParent != null) 'firstTimeParent': _firstTimeParent,
+      if (_nameController.text.trim().isNotEmpty)
+        'name': _nameController.text.trim(),
+      if (_caringFor != null) 'caringFor': _caringFor,
+      if (_language != null) 'language': _language,
+    };
 
     try {
-      await MockAuthService.saveProfile({'firstTimeParent': firstTimeParent});
+      if (answers.isNotEmpty) {
+        await MockAuthService.saveProfile(answers);
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Saved. Next setup screens are coming in a later build.'),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Something went wrong. Please try again.')),
+      Navigator.of(context).pushAndRemoveUntil(
+        fadeScaleRoute(const MainShell()),
+        (route) => false,
       );
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
-  void _skip() {
-    Navigator.of(context).pushReplacement(
-      fadeScaleRoute(const MainShell()),
-    );
+  void _next() {
+    if (_step == _totalSteps - 1) {
+      _finish();
+    } else {
+      setState(() => _step++);
+    }
   }
 
-  Widget _choiceButton(String label, bool value) {
-    return Expanded(
-      child: PressableScale(
-        enabled: !_isSaving,
-        child: SizedBox(
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isSaving ? null : () => _answer(value),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              disabledBackgroundColor: Colors.white.withValues(alpha: 0.7),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: AppColors.setupChoiceText,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  void _back() {
+    if (_step > 0) setState(() => _step--);
+  }
+
+  bool get _canContinue {
+    switch (_step) {
+      case 0:
+        return _firstTimeParent != null;
+      case 1:
+        return _nameController.text.trim().isNotEmpty;
+      case 2:
+        return _caringFor != null;
+      case 3:
+        return _language != null;
+      default:
+        return false;
+    }
   }
 
   @override
@@ -87,50 +103,228 @@ class _AccountSetupScreenState extends State<AccountSetupScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                const Spacer(flex: 4),
-                Text(
-                  "Let's set up\nyour account",
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.heroHeading.copyWith(
-                    fontSize: 44,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -1.5,
-                  ),
-                ),
-                const SizedBox(height: 56),
-                Text(
-                  'Are you a first-time\nparent?',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.heroSubtitle.copyWith(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 16),
                 Row(
                   children: [
-                    _choiceButton('Yes', true),
-                    const SizedBox(width: 16),
-                    _choiceButton('No', false),
+                    SizedBox(
+                      width: 40,
+                      child: _step > 0
+                          ? IconButton(
+                              onPressed: _saving ? null : _back,
+                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            )
+                          : null,
+                    ),
+                    Expanded(
+                      child: OnboardingProgress(
+                        totalSteps: _totalSteps,
+                        currentStep: _step,
+                      ),
+                    ),
+                    const SizedBox(width: 40),
                   ],
                 ),
-                const Spacer(flex: 7),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.08, 0),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey(_step),
+                      child: _stepContent(),
+                    ),
+                  ),
+                ),
+                AmumaPrimaryButton(
+                  label: _step == _totalSteps - 1 ? 'Finish' : 'Continue',
+                  isLoading: _saving,
+                  onPressed: _canContinue ? _next : null,
+                ),
+                const SizedBox(height: 14),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 24),
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    children: [
-                      const Text('Do this later?  ',
-                          style: AppTextStyles.footerText),
-                      GestureDetector(
-                        onTap: _skip,
-                        child: const Text('Click Skip',
-                            style: AppTextStyles.footerLink),
-                      ),
-                    ],
+                  child: GestureDetector(
+                    onTap: _saving ? null : _finish,
+                    child: const Text(
+                      'Skip for now',
+                      style: AppTextStyles.footerLink,
+                    ),
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stepContent() {
+    switch (_step) {
+      case 0:
+        return _choiceStep(
+          title: "Let's set up\nyour account",
+          subtitle: 'Are you a first-time parent?',
+          options: const ['Yes', 'No'],
+          selected: _firstTimeParent == null
+              ? null
+              : (_firstTimeParent! ? 'Yes' : 'No'),
+          onSelect: (v) => setState(() => _firstTimeParent = v == 'Yes'),
+        );
+      case 1:
+        return _nameStep();
+      case 2:
+        return _choiceStep(
+          title: 'Tell us a bit\nmore',
+          subtitle: 'Who are you expecting or caring for?',
+          options: const ['Expecting', 'Newborn', 'Toddler', 'Not sure'],
+          selected: _caringFor,
+          onSelect: (v) => setState(() => _caringFor = v),
+          vertical: true,
+        );
+      case 3:
+        return _choiceStep(
+          title: 'Almost\ndone',
+          subtitle: 'Preferred language',
+          options: const ['English', 'Tagalog', 'Taglish'],
+          selected: _language,
+          onSelect: (v) => setState(() => _language = v),
+          vertical: true,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _heading(String title, String subtitle) {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.heroHeading.copyWith(
+            fontSize: 36,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.heroSubtitle.copyWith(
+            fontSize: 22,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _nameStep() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _heading('Nice to\nmeet you', 'What should we call you?'),
+          const SizedBox(height: 32),
+          TextField(
+            controller: _nameController,
+            textAlign: TextAlign.center,
+            textInputAction: TextInputAction.done,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _canContinue ? _next() : null,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Your name',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white54),
+              ),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _choiceStep({
+    required String title,
+    required String subtitle,
+    required List<String> options,
+    required String? selected,
+    required ValueChanged<String> onSelect,
+    bool vertical = false,
+  }) {
+    final buttons = [
+      for (final option in options)
+        _choiceButton(option, selected == option, () => onSelect(option)),
+    ];
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _heading(title, subtitle),
+          const SizedBox(height: 32),
+          if (vertical)
+            Column(
+              children: [
+                for (final b in buttons)
+                  Padding(padding: const EdgeInsets.only(bottom: 12), child: b),
+              ],
+            )
+          else
+            Row(
+              children: [
+                for (var i = 0; i < buttons.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 16),
+                  Expanded(child: buttons[i]),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _choiceButton(String label, bool active, VoidCallback onTap) {
+    return PressableScale(
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: active ? AppColors.maroon : Colors.white,
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(
+                color: active ? AppColors.maroon : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: active ? Colors.white : AppColors.setupChoiceText,
             ),
           ),
         ),

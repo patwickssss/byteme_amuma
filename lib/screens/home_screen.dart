@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/parenting_tips.dart';
 import '../models/app_feature.dart';
 import '../models/care_models.dart';
 import '../services/care_storage_service.dart';
@@ -8,9 +9,11 @@ import '../services/nav_controller.dart';
 import '../theme/app_colors.dart';
 import '../utils/age_utils.dart';
 import '../widgets/pressable_scale.dart';
+import '../widgets/skeleton_box.dart';
 
 /// Home tab (Home_Page.png): greeting, Today's Reminder, 6 feature buttons,
-/// Quick Access. Runs inside MainShell, so the bottom bar comes from the shell.
+/// Quick Access, daily tip. Runs inside MainShell, so the bottom bar comes
+/// from the shell.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -34,13 +37,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   CareProfile? _reminderProfile;
   CareReminder? _reminder;
-  bool _loadedReminder = false;
+  bool _loadingReminder = true;
 
   @override
   void initState() {
     super.initState();
     _loadName();
     _loadReminder();
+  }
+
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
   Future<void> _loadName() async {
@@ -53,16 +63,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadReminder() async {
+    setState(() => _loadingReminder = true);
     final all = await CareStorageService.loadAllReminders();
-    final today = all.where((e) => AgeUtils.isSameDay(e.value.date, DateTime.now()));
+    final today =
+        all.where((e) => AgeUtils.isSameDay(e.value.date, DateTime.now()));
     if (!mounted) return;
     setState(() {
-      if (today.isNotEmpty) {
-        _reminderProfile = today.first.key;
-        _reminder = today.first.value;
-      }
-      _loadedReminder = true;
+      _reminderProfile = today.isNotEmpty ? today.first.key : null;
+      _reminder = today.isNotEmpty ? today.first.value : null;
+      _loadingReminder = false;
     });
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([_loadName(), _loadReminder()]);
   }
 
   void _open(String id) => NavController.instance.open(id);
@@ -81,25 +95,64 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: RefreshIndicator(
+            color: AppColors.maroon,
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               children: [
-                Text(
-                  'Hello, $_name!',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const Text(
-                  'How can Amuma help you today?',
-                  style: TextStyle(fontSize: 15, color: AppColors.maroon),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$_greeting, $_name!',
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const Text(
+                            'How can Amuma help you today?',
+                            style: TextStyle(fontSize: 14, color: AppColors.maroon),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Emergency stays one tap away from Home at all times,
+                    // since quick access to it matters for safety.
+                    Tooltip(
+                      message: 'Emergency Alerts',
+                      child: Semantics(
+                        button: true,
+                        label: 'Emergency Alerts',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: () => _open('emergency'),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFD64545),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.emergency_rounded,
+                                color: Colors.white, size: 22),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 _reminderCard(),
+                const SizedBox(height: 16),
+                _tipCard(),
                 const SizedBox(height: 24),
                 GridView.count(
                   shrinkWrap: true,
@@ -107,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 16,
                   crossAxisSpacing: 16,
-                  childAspectRatio: 1.65,
+                  childAspectRatio: 1.5,
                   children: [
                     for (final id in _featureIds) _featureButton(id),
                   ],
@@ -141,14 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _reminderCard() {
-    final hasReminder = _loadedReminder && _reminder != null;
-    final chipText = hasReminder
-        ? "${_reminderProfile!.name}'s ${_reminder!.title}"
-        : 'No reminders today';
-    final bodyText = hasReminder
-        ? 'Scheduled at ${_reminder!.time}.'
-        : "You're all caught up. Add reminders in Care Records & Reminders.";
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -157,64 +202,121 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.maroon),
       ),
-      child: Column(
+      child: _loadingReminder
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                SkeletonBox(height: 16, width: 140),
+                SizedBox(height: 12),
+                SkeletonBox(height: 20, width: 160, radius: 12),
+                SizedBox(height: 12),
+                SkeletonBox(height: 13),
+                SizedBox(height: 6),
+                SkeletonBox(height: 13, width: 220),
+              ],
+            )
+          : _reminderContent(),
+    );
+  }
+
+  Widget _reminderContent() {
+    final hasReminder = _reminder != null;
+    final chipText = hasReminder
+        ? "${_reminderProfile!.name}'s ${_reminder!.title}"
+        : 'No reminders today';
+    final bodyText = hasReminder
+        ? 'Scheduled at ${_reminder!.time}.'
+        : "You're all caught up. Add a reminder to see it here.";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Today's Reminder",
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: AppColors.maroon,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: _chipColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '• $chipText',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          bodyText,
+          style: const TextStyle(fontSize: 13, height: 1.3, color: AppColors.maroon),
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: SizedBox(
+            height: 28,
+            child: ElevatedButton(
+              onPressed: () => _open('records'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.maroon,
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(
+                hasReminder ? 'View Details' : 'Add a Reminder',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tipCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Today's Reminder",
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: AppColors.maroon,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: _chipColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '• $chipText',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            bodyText,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.3,
-              color: AppColors.maroon,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: SizedBox(
-              height: 28,
-              child: ElevatedButton(
-                onPressed: () => _open('records'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.maroon,
-                  padding: const EdgeInsets.symmetric(horizontal: 30),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'View Details',
+          const Icon(Icons.lightbulb_outline, color: AppColors.maroon, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Daily tip for parents',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.maroon,
                   ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  ParentingTips.forToday(),
+                  style: const TextStyle(fontSize: 12, height: 1.35, color: Colors.black87),
+                ),
+              ],
             ),
           ),
         ],
@@ -224,33 +326,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _featureButton(String id) {
     final feature = AppFeatures.byId(id);
-    return PressableScale(
-      child: Material(
-        color: AppColors.maroon,
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _open(id),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Icon(feature.icon, color: Colors.white, size: 30),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    feature.fullName,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+    final isEmergency = id == 'emergency';
+
+    return Tooltip(
+      message: feature.fullName,
+      child: Semantics(
+        button: true,
+        label: feature.fullName,
+        child: PressableScale(
+          child: Material(
+            color: isEmergency ? const Color(0xFFD64545) : AppColors.maroon,
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _open(id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(feature.icon, color: Colors.white, size: 26),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          feature.fullName,
+                          maxLines: 2,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -287,10 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.maroon,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: AppColors.maroon),
                   ),
                 ],
               ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/mock_auth_service.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/app_routes.dart';
 import '../widgets/amuma_button.dart';
 import '../widgets/amuma_text_field.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/social_login_button.dart';
 import 'login_screen.dart';
 
 /// Sign Up screen — fields match Figma (email, password, confirm password).
@@ -16,10 +18,15 @@ class SignUpScreen extends StatefulWidget {
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
+enum _PasswordStrength { weak, fair, strong }
+
 class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -37,7 +44,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
+  }
+
+  _PasswordStrength _strengthOf(String password) {
+    if (password.isEmpty) return _PasswordStrength.weak;
+    var score = 0;
+    if (password.length >= 8) score++;
+    if (RegExp(r'[A-Z]').hasMatch(password)) score++;
+    if (RegExp(r'[0-9]').hasMatch(password)) score++;
+    if (RegExp(r'[^A-Za-z0-9]').hasMatch(password)) score++;
+    if (score >= 3) return _PasswordStrength.strong;
+    if (score >= 1) return _PasswordStrength.fair;
+    return _PasswordStrength.weak;
   }
 
   bool _validate() {
@@ -91,7 +112,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully.')),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.maroon,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text('Account created — you can log in now.'),
+            ],
+          ),
+        ),
       );
       Navigator.of(context).pushReplacement(
         fadeScaleRoute(const LoginScreen()),
@@ -104,12 +136,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  void _comingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Coming in a later build.')),
-    );
-  }
-
   Widget _visibilityToggle(bool obscure, VoidCallback onTap) {
     return IconButton(
       icon: Icon(
@@ -117,6 +143,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
         color: Colors.white70,
       ),
       onPressed: onTap,
+    );
+  }
+
+  Widget _strengthHint() {
+    if (_passwordController.text.isEmpty) return const SizedBox.shrink();
+    final strength = _strengthOf(_passwordController.text);
+    final (label, color) = switch (strength) {
+      _PasswordStrength.weak => ('Weak — try adding a number or symbol', const Color(0xFFFFD9D6)),
+      _PasswordStrength.fair => ('Fair — a little longer helps', const Color(0xFFFFE9C2)),
+      _PasswordStrength.strong => ('Strong password', const Color(0xFFCFF3D8)),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Text(label, style: TextStyle(fontSize: 12, color: color)),
     );
   }
 
@@ -146,6 +186,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _emailController,
                   hintText: 'Email Address',
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _passwordFocus.requestFocus(),
                   errorText: _emailError,
                   onChanged: (_) {
                     if (_emailError != null) setState(() => _emailError = null);
@@ -155,25 +197,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                 AmumaTextField(
                   controller: _passwordController,
+                  focusNode: _passwordFocus,
                   hintText: 'Password',
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _confirmFocus.requestFocus(),
                   errorText: _passwordError,
                   onChanged: (_) {
-                    if (_passwordError != null) {
-                      setState(() => _passwordError = null);
-                    }
+                    setState(() {
+                      if (_passwordError != null) _passwordError = null;
+                    });
                   },
                   suffixIcon: _visibilityToggle(
                     _obscurePassword,
                     () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
+                Align(alignment: Alignment.centerLeft, child: _strengthHint()),
                 const SizedBox(height: 16),
 
                 AmumaTextField(
                   controller: _confirmController,
+                  focusNode: _confirmFocus,
                   hintText: 'Confirm Password',
                   obscureText: _obscureConfirm,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _handleSignUp(),
                   errorText: _confirmError,
                   onChanged: (_) {
                     if (_confirmError != null) {
@@ -194,14 +243,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ],
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 AmumaPrimaryButton(
                   label: 'Sign Up',
                   isLoading: _isLoading,
                   onPressed: _handleSignUp,
                 ),
+                const SizedBox(height: 14),
+                Text(
+                  'By signing up you agree to our Terms of Service and '
+                  'Privacy Policy.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.footerText.copyWith(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
                 const Row(
                   children: [
                     Expanded(child: Divider(color: Colors.white54)),
@@ -214,14 +273,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
+                const Row(
                   children: [
                     Expanded(
-                      child: AmumaSocialPlaceholderButton(onPressed: _comingSoon),
+                      child: SocialLoginButton(
+                        label: 'Google',
+                        icon: Icons.g_mobiledata_rounded,
+                        iconColor: Color(0xFFDB4437),
+                      ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Expanded(
-                      child: AmumaSocialPlaceholderButton(onPressed: _comingSoon),
+                      child: SocialLoginButton(
+                        label: 'Facebook',
+                        icon: Icons.facebook,
+                        iconColor: Color(0xFF1877F2),
+                      ),
                     ),
                   ],
                 ),

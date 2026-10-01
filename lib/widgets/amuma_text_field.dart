@@ -12,6 +12,9 @@ class AmumaTextField extends StatelessWidget {
   final String? errorText;
   final Widget? suffixIcon;
   final ValueChanged<String>? onChanged;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+  final FocusNode? focusNode;
 
   const AmumaTextField({
     super.key,
@@ -22,6 +25,9 @@ class AmumaTextField extends StatelessWidget {
     this.errorText,
     this.suffixIcon,
     this.onChanged,
+    this.textInputAction,
+    this.onSubmitted,
+    this.focusNode,
   });
 
   @override
@@ -46,6 +52,9 @@ class AmumaTextField extends StatelessWidget {
             obscureText: obscureText,
             keyboardType: keyboardType,
             onChanged: onChanged,
+            textInputAction: textInputAction,
+            onSubmitted: onSubmitted,
+            focusNode: focusNode,
             style: AppTextStyles.inputText,
             cursorColor: Colors.white,
             decoration: InputDecoration(

@@ -5,7 +5,9 @@ import '../utils/app_routes.dart';
 import '../widgets/amuma_button.dart';
 import '../widgets/amuma_text_field.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/social_login_button.dart';
 import 'account_setup_screen.dart';
+import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
 
 /// Login screen — checks credentials against the locally stored mock
@@ -20,6 +22,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final FocusNode _passwordFocus = FocusNode();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -34,6 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -76,9 +80,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login successful')),
-      );
       Navigator.of(context).pushAndRemoveUntil(
         fadeScaleRoute(const AccountSetupScreen()),
         (route) => false,
@@ -89,12 +90,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  void _comingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Coming in a later build.')),
-    );
   }
 
   @override
@@ -117,6 +112,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _emailController,
                   hintText: 'Email Address',
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _passwordFocus.requestFocus(),
                   errorText: _emailError,
                   onChanged: (_) {
                     if (_emailError != null || _authError != null) {
@@ -131,8 +128,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 AmumaTextField(
                   controller: _passwordController,
+                  focusNode: _passwordFocus,
                   hintText: 'Password',
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _handleLogin(),
                   errorText: _passwordError,
                   onChanged: (_) {
                     if (_passwordError != null || _authError != null) {
@@ -164,7 +164,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: _comingSoon,
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen()),
+                      );
+                    },
                     child: const Text('Forgot Password?',
                         style: AppTextStyles.linkText),
                   ),
@@ -190,14 +195,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
+                const Row(
                   children: [
                     Expanded(
-                      child: AmumaSocialPlaceholderButton(onPressed: _comingSoon),
+                      child: SocialLoginButton(
+                        label: 'Google',
+                        icon: Icons.g_mobiledata_rounded,
+                        iconColor: Color(0xFFDB4437),
+                      ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Expanded(
-                      child: AmumaSocialPlaceholderButton(onPressed: _comingSoon),
+                      child: SocialLoginButton(
+                        label: 'Facebook',
+                        icon: Icons.facebook,
+                        iconColor: Color(0xFF1877F2),
+                      ),
                     ),
                   ],
                 ),

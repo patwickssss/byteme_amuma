@@ -99,6 +99,12 @@ class MockAuthService {
     await _saveAccounts(accounts);
   }
 
+  /// MOCK: no real email is sent — replace with a real API call
+  /// (e.g. Firebase Auth's sendPasswordResetEmail) later.
+  static Future<void> resetPassword({required String email}) async {
+    await Future.delayed(_fakeLatency);
+  }
+
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_text_styles.dart';
+import '../services/mock_auth_service.dart';
 import '../utils/app_routes.dart';
 import '../widgets/gradient_background.dart';
 import 'auth_choice_screen.dart';
+import 'main_shell.dart';
 
 /// Animated splash: mark fades/scales in, logotype follows with a soft
 /// slide-up, short pause, then a fade/scale transition to the auth screen.
@@ -33,10 +35,10 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _controller,
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     );
-    _markScale = Tween<double>(begin: 0.85, end: 1.0).animate(
+    _markScale = Tween<double>(begin: 0.82, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.7, curve: Curves.fastOutSlowIn),
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
       ),
     );
     _textFade = CurvedAnimation(
@@ -58,10 +60,18 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _run() async {
     await _controller.forward();
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+
+    // If a mock session already exists, skip straight to the app —
+    // like a real app remembering you're logged in.
+    final existingUser = await MockAuthService.getStoredAccount();
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
-      fadeScaleRoute(const AuthChoiceScreen()),
+      fadeScaleRoute(
+        existingUser != null ? const MainShell() : const AuthChoiceScreen(),
+      ),
     );
   }
 
