@@ -40,22 +40,19 @@ class AppFeatures {
       "Track your child's growth and appointments",
       Icons.child_care_rounded);
   static const bodywise = AppFeature('bodywise', 'BodyWise', 'BodyWise',
-      'Track your own health and cycle', Icons.favorite_rounded,
-      built: false);
+      'Track your own health and cycle', Icons.favorite_rounded);
   static const planning = AppFeature(
       'planning',
       'Planning',
       'Family & Budget Planning',
       'Plan expenses for your family',
-      Icons.family_restroom_rounded,
-      built: false);
+    Icons.family_restroom_rounded);
   static const emergency = AppFeature(
       'emergency',
       'Emergency',
       'Emergency Alerts',
       'Quick access to emergency contacts',
-      Icons.add_box_rounded,
-      built: false);
+    Icons.add_box_rounded);
 
   static const List<AppFeature> all = [
     home,

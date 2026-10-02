@@ -9,6 +9,9 @@ import 'baby_care_guide_screen.dart';
 import 'care_records_screen.dart';
 import 'community_screen.dart';
 import 'home_screen.dart';
+import 'bodywise_screen.dart';
+import 'emergency_screen.dart';
+import 'planning_screen.dart';
 
 /// Hosts the active main screen above the shared bottom bar.
 class MainShell extends StatefulWidget {
@@ -37,8 +40,13 @@ class _MainShellState extends State<MainShell> {
         return const BabyCareGuideScreen();
       case 'records':
         return const CareRecordsScreen();
+      case 'bodywise':
+        return const BodyWiseScreen();
+      case 'emergency':
+        return const EmergencyScreen();
+      case 'planning':
+        return const PlanningScreen();
       default:
-        // bodywise, planning, emergency: not built yet.
         return ComingSoonScreen(feature: AppFeatures.byId(id));
     }
   }

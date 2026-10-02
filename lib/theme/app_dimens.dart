@@ -20,6 +20,7 @@ class AppRadius {
   static const double lg = 16;
   static const double xl = 22;
   static const double pill = 999;
+  static const double hero = 28;
 }
 
 class AppShadows {

@@ -10,6 +10,20 @@ class AppColors {
   static const Color gradientTop = Color(0xFFD478C9);
   static const Color gradientMid = Color(0xFFDD84AE);
   static const Color gradientBottom = Color(0xFFED85B8);
+  /// Soft supporting tints for the Home redesign — used behind icons and
+  /// as section backgrounds, never replacing the maroon/pink brand colors.
+  static const Color cream = Color(0xFFFBF4EF);
+  static const Color blush = Color(0xFFFCE4EC);
+  static const Color peach = Color(0xFFFFE9DC);
+  static const Color lavender = Color(0xFFEDE6F8);
+  static const Color mint = Color(0xFFE2F3EC);
+  static const Color coral = Color(0xFFC9473A);
+
+  static const Color pinkDark = Color(0xFFC2185B);      // pink text that passes contrast
+  static const Color emergencyRed = Color(0xFFC62828);  // emergency actions only
+
+  static const Color textDark = Color(0xFF2E2230);
+  static const Color textMuted = Color(0xFF7A6B75);
 
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topLeft,

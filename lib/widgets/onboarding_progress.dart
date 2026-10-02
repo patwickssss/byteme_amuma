@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 
 /// Step dots for a short onboarding flow (e.g. Account Setup).
 class OnboardingProgress extends StatelessWidget {
