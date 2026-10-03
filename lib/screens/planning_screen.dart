@@ -134,10 +134,15 @@ class _PlanningScreenState extends State<PlanningScreen> {
         children: [
           _searchField(),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [for (final c in PlanningData.chips) _chipButton(c)],
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: PlanningData.chips.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) =>
+                  _chipButton(PlanningData.chips[index]),
+            ),
           ),
           const SizedBox(height: 18),
           Text(
@@ -216,8 +221,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       child: GestureDetector(
         onTap: () => setState(() => _chip = label),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active ? AppColors.pink : Colors.white,
